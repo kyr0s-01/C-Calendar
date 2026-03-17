@@ -2,21 +2,25 @@
 #include <stdio.h>
 #include <time.h>
 
-#define MONTHS_NUM 12
-#define RED "\033[31m" 
 
-/* Prototypes */
-void print_month(char *current_month, int total_days, int current_day, int current_year);
-int check_leap(int year);
+#define MONTHS_NUM 12
+#define ANSI_RED_COLOR "\033[31m"
+#define ANSI_RESET     "\033[0m"
+
 /* Structs */
 typedef struct 
 {
     char *month_name;
     int num_days;
+    int is_sys_month;
 }Month;
 
-/* Global variables */
 
+/* Prototypes */
+void print_month( Month current_month, int current_day, int current_year );
+int check_leap(int year);
+
+/* Global variables */
 static const char *MONTHS_LIST[] = {
     "January", "February", "March", "April",
     "May", "June", "July", "August",
@@ -24,6 +28,10 @@ static const char *MONTHS_LIST[] = {
 };
 
 static const int POSSIBLE_DAYS_N [] = {31, 30, 29, 28};
+
+/********/
+/* MAIN */
+/********/
 int main()
 {
     time_t now 		= time(NULL);
@@ -31,15 +39,15 @@ int main()
     int y 		= local->tm_year + 1900;
     int m 		= local->tm_mon;
     int d		= local->tm_mday;
+    
     Month months_array[MONTHS_NUM];
 
     ///* Populate array*///
-   // printf("%-12s %-10s %-2s\n", "INDEX", "NAME", "DAYS");
     for (int i = 0; i < MONTHS_NUM; i++ ) {
         /* assign the name to each month in the correct field of the struct */
         months_array[i].month_name = MONTHS_LIST[i]; 
 
-        /* assign the correct number of days - no leap */
+        /* assign the correct number of days */
         switch (i)
         {
 	    /* Months with 31 days */
@@ -51,11 +59,12 @@ int main()
                 break;
 	    /* February */
             case 1:
+		/* Check leap year and adjust number of days for february */
 		if((check_leap(y)) == 0 ) {
-                months_array[i].num_days = POSSIBLE_DAYS_N[2];
+		    months_array[i].num_days = POSSIBLE_DAYS_N[2];
 		} else {
 		    months_array[i].num_days = POSSIBLE_DAYS_N[3];
-		}
+		  }
 		break;
 	    /* Months with 30 days */
             default:
@@ -70,10 +79,14 @@ int main()
     /* Print selected month */
     int c;
     int selected_month = m;
+    months_array[selected_month].is_sys_month = 1; //flag the current system month
+    
+    
     while (( c = getchar()) != EOF) {
 	system("clear");
-	print_month( months_array[selected_month].month_name, months_array[selected_month].num_days, d, y);
+	print_month( months_array[selected_month], d, y );
 	
+	/* Read input */
 	if ( c == '\x1b') {
 	    getchar();
 	    char arrow = getchar();
@@ -83,37 +96,31 @@ int main()
 		 && ( selected_month > 0 )) selected_month--;
 	}
     }
-    /*
-    int current_month = 0;
-    while (current_month < MONTHS_NUM) {
-	print_month ( months_array[current_month].month_name, months_array[current_month].num_days, year );
-	puts(" ");
-	current_month++;
-    }
-
-
-    printf("%s\n"
-	   "%d", asctime(local), month);
-*/
-
 }
 
 
 /* Function declarations */
 
+/*********************************/
+/* PRINT MONTH IN CORRECT FORMAT */
+/*********************************/
 
-void print_calendar();
-
-
-/* Print months in a correct format */
-void print_month(char *current_month, int total_days, int current_day, int current_year) 
+void print_month( Month current_month, int current_day, int current_year ) 
 {
     int week_days_counter = 1;
     printf("\t\t %s\t%d\n"
-	   "%s\n", current_month, current_year, "---------------------------------------------");
+	   "%s\n", current_month.month_name, current_year, "--------------------------------------------------");
 
-    for ( int i = 1 ; i <= total_days; i++ ) {
-	printf("%-8d", i);
+    for ( int i = 1 ; i <= current_month.num_days; i++ ) {
+	
+	/* check if the i day is the current day in the system */
+	if (( i == current_day )
+	     && ( current_month.is_sys_month == 1 )) {
+		printf(ANSI_RED_COLOR"%-8d"ANSI_RESET, i); //print the current system day in RED and reset 
+	} else {
+	    printf("%-8d", i);
+	}
+
 	/* Checks for week ending */
 	if( week_days_counter == 7 ) {
 	    printf("\n");
@@ -123,14 +130,17 @@ void print_month(char *current_month, int total_days, int current_day, int curre
 	    week_days_counter++;
 	}
 
-
-
     }
    printf("\n"); 
 
 }
 
-/* Function to check if the current year is a leap year*/
+/****************************************/
+/* CHECK IF CURRENT YEAR IS A LEAP YEAR */
+/****************************************/
+/* A Leap year has 366 days. In order to be a leap, an year must be divisible by 4 and not by 100 if not the first year in a century. Otherwise by 400. 
+ * The funcion returns 0 if the given year is leap, 1 if not. */
+
 int check_leap(int year)
 {
     if (( year % 400 ) == 0) {
